@@ -89,10 +89,12 @@ Là, je clos clairement la première partie:
 j'ai validé l'infra Nebula sur les 3 VM existantes, avec déploiement, placement et flux applicatif.
 
 Ensuite, je liste ce qu'il manque encore:
-la haute disponibilité data (Postgres/Redis), la chaîne CI/CD complète, et l'automatisation de provisioning infra.
+la haute disponibilité data (Postgres/Redis), la chaîne CI/CD complète, et le workflow Terraform ciblé pour créer un nouvel environnement 3 VM.
 
 Et là je fais la transition explicite:  
 le prochain PPT sera dédié à la suite, c'est-à-dire la création de 3 nouvelles VM via Terraform, puis le redéploiement complet Nebula sur ces nouvelles VM.
+Dans cette suite, l'idée est simple:
+on crée les 3 VM, on récupère le code sur Git, puis on redéploie tous les microservices Nebula sur ce nouvel environnement.
 
 Phrase de clôture recommandée:
 "Cette première soutenance valide la base opérationnelle; la suivante montrera l'industrialisation de bout en bout."

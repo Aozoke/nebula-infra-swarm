@@ -68,8 +68,8 @@ Format conseillé: 1 idée forte par slide.
 - Ce qu’il manque encore:
 - HA data (réplication Postgres/Redis, stratégie de reprise).
 - pipeline CI/CD complet (build, push registry, déploiement automatisé).
-- automatisation provisioning infra (création de nouvelles VM depuis zéro).
-- Transition: le prochain PPT est dédié à la suite, avec la création de 3 nouvelles VM via Terraform puis redéploiement Nebula.
+- workflow Terraform ciblé: création de 3 nouvelles VM pour l’environnement Nebula.
+- transition: le prochain PPT détaille la suite, avec création des 3 VM, récupération du code depuis Git, puis redéploiement complet des microservices sur ces nouvelles VM.
 
 ---
 
