@@ -1,0 +1,85 @@
+version: "3.9"
+
+services:
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    command:
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --path.rootfs=/rootfs
+      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    networks:
+      - app
+    deploy:
+      mode: global
+      restart_policy:
+        condition: on-failure
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+    volumes:
+      - /home/etudiant/Nebula-infra-swarm/config/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - app
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints:
+          - node.labels.role == edge
+
+  grafana:
+    image: grafana/grafana:11.2.2
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_password
+      GF_SERVER_ROOT_URL: "http://10.100.9.222/grafana"
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - /home/etudiant/Nebula-infra-swarm/config/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+    networks:
+      - app
+    secrets:
+      - source: grafana_admin_password
+        target: grafana_admin_password
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints:
+          - node.labels.role == edge
+      labels:
+        - traefik.enable=true
+        - traefik.docker.network=nebula_app
+        - traefik.http.routers.grafana.entrypoints=web
+        - traefik.http.routers.grafana.rule=PathPrefix(`/grafana`)
+        - traefik.http.routers.grafana.middlewares=grafana-strip
+        - traefik.http.middlewares.grafana-strip.stripprefix.prefixes=/grafana
+        - traefik.http.services.grafana.loadbalancer.server.port=3000
+
+volumes:
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  app:
+    external: true
+    name: nebula_app
+
+secrets:
+  grafana_admin_password:
+    external: true

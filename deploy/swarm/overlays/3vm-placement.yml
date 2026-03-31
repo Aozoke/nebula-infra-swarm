@@ -1,0 +1,45 @@
+version: "3.9"
+
+services:
+  edge-proxy:
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+          - node.labels.role == edge
+
+  users-api:
+    deploy:
+      placement:
+        constraints:
+          - node.labels.role == app
+
+  posts-api:
+    deploy:
+      placement:
+        constraints:
+          - node.labels.role == app
+
+  feed-api:
+    deploy:
+      placement:
+        constraints:
+          - node.labels.role == app
+
+  feed-worker:
+    deploy:
+      placement:
+        constraints:
+          - node.labels.role == app
+
+  postgres:
+    deploy:
+      placement:
+        constraints:
+          - node.labels.role == data
+
+  redis:
+    deploy:
+      placement:
+        constraints:
+          - node.labels.role == data

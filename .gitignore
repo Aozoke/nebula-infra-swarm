@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.venv/
+
+# Local artifacts
+*.log
+*.tar
+*.tar.gz
+
+# Nebula local data / evidence
+docs/evidence/
+data/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/

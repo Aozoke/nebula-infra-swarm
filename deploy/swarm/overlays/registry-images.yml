@@ -1,0 +1,14 @@
+version: "3.9"
+
+services:
+  users-api:
+    image: 10.100.9.222:5000/nebula/users-api:v0.3.0
+
+  posts-api:
+    image: 10.100.9.222:5000/nebula/posts-api:v0.2.0
+
+  feed-api:
+    image: 10.100.9.222:5000/nebula/feed-api:v0.3.0
+
+  feed-worker:
+    image: 10.100.9.222:5000/nebula/feed-worker:v0.1.0

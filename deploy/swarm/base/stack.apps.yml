@@ -1,0 +1,143 @@
+version: "3.9"
+
+services:
+  users-api:
+    image: nebula/users-api:v0.3.0
+    environment:
+      DATABASE_HOST: postgres
+      DATABASE_PORT: "5432"
+      DATABASE_NAME: nebula
+      DATABASE_USER: nebula
+      DATABASE_PASSWORD_FILE: /run/secrets/nebula_postgres_password
+    networks:
+      - app
+      - data
+    secrets:
+      - source: nebula_postgres_password
+        target: nebula_postgres_password
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      labels:
+        - traefik.enable=true
+        - traefik.docker.network=nebula_app
+        - traefik.http.routers.users-api.rule=PathPrefix(`/users`) || PathPrefix(`/follows`) || Path(`/health`)
+        - traefik.http.routers.users-api.entrypoints=web
+        - traefik.http.routers.users-api.priority=10
+        - traefik.http.services.users-api.loadbalancer.server.port=8000
+      update_config:
+        parallelism: 1
+        order: start-first
+        failure_action: rollback
+      rollback_config:
+        parallelism: 1
+        order: start-first
+
+  posts-api:
+    image: nebula/posts-api:v0.2.0
+    environment:
+      DATABASE_HOST: postgres
+      DATABASE_PORT: "5432"
+      DATABASE_NAME: nebula
+      DATABASE_USER: nebula
+      DATABASE_PASSWORD_FILE: /run/secrets/nebula_postgres_password
+      USERS_API_BASE_URL: http://users-api:8000
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_STREAM_NAME: nebula.events
+    networks:
+      - app
+      - data
+    secrets:
+      - source: nebula_postgres_password
+        target: nebula_postgres_password
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      labels:
+        - traefik.enable=true
+        - traefik.docker.network=nebula_app
+        - traefik.http.routers.posts-api.rule=PathPrefix(`/posts`)
+        - traefik.http.routers.posts-api.entrypoints=web
+        - traefik.http.services.posts-api.loadbalancer.server.port=8000
+      update_config:
+        parallelism: 1
+        order: start-first
+        failure_action: rollback
+      rollback_config:
+        parallelism: 1
+        order: start-first
+
+  feed-worker:
+    image: nebula/feed-worker:v0.1.0
+    environment:
+      DATABASE_HOST: postgres
+      DATABASE_PORT: "5432"
+      DATABASE_NAME: nebula
+      DATABASE_USER: nebula
+      DATABASE_PASSWORD_FILE: /run/secrets/nebula_postgres_password
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_STREAM_NAME: nebula.events
+    networks:
+      - app
+      - data
+    secrets:
+      - source: nebula_postgres_password
+        target: nebula_postgres_password
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      update_config:
+        parallelism: 1
+        order: start-first
+        failure_action: rollback
+      rollback_config:
+        parallelism: 1
+        order: start-first
+
+  feed-api:
+    image: nebula/feed-api:v0.3.0
+    environment:
+      DATABASE_HOST: postgres
+      DATABASE_PORT: "5432"
+      DATABASE_NAME: nebula
+      DATABASE_USER: nebula
+      DATABASE_PASSWORD_FILE: /run/secrets/nebula_postgres_password
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      FEED_CACHE_TTL: "30"
+    networks:
+      - app
+      - data
+    secrets:
+      - source: nebula_postgres_password
+        target: nebula_postgres_password
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      labels:
+        - traefik.enable=true
+        - traefik.docker.network=nebula_app
+        - traefik.http.routers.feed-api.rule=PathPrefix(`/feed`)
+        - traefik.http.routers.feed-api.entrypoints=web
+        - traefik.http.services.feed-api.loadbalancer.server.port=8000
+        
+      update_config:
+        parallelism: 1
+        order: start-first
+        failure_action: rollback
+      rollback_config:
+        parallelism: 1
+        order: start-first
+
+
+networks:
+  app:
+    driver: overlay
+  data:
+    driver: overlay
