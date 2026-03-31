@@ -1,7 +1,7 @@
 # Nebula — Support jury 12 slides (version opérationnelle)
 
 Utilisation: ce fichier est prêt à être collé dans Gamma/PPT.  
-Format conseillé: 1 idée par slide + 1 preuve terminal.
+Format conseillé: 1 idée par slide.
 
 ## Slide 1 — Titre et objectif
 
@@ -9,18 +9,89 @@ Format conseillé: 1 idée par slide + 1 preuve terminal.
 - Objectif: prouver une plateforme microservices opérable, pas un produit final.
 - Résultat attendu: déploiement distribué, flux end-to-end, preuves techniques.
 
-Action live:
-- Pas de commande (slide d'ouverture).
-
-Preuve:
-- Contexte projet et périmètre explicités.
-
 ## Slide 2 — Topologie validée (3 VM)
 
 - VM1 `10.100.9.222`: manager + edge.
 - VM2 `10.100.9.135`: worker app.
 - VM3 `10.100.9.223`: worker data.
 - Isolation logique par rôles.
+
+## Slide 3 — Architecture de stack
+
+- `edge-proxy` (Traefik), `users-api`, `posts-api`, `feed-api`, `feed-worker`, `postgres`, `redis`.
+- Réseaux overlay: `public`, `app`, `data`.
+- Point d'entrée unique via Traefik.
+
+## Slide 4 — Déploiement et orchestration
+
+- Déploiement depuis VM1 manager avec fichiers stack + overlay placement.
+- Stratégie de mise à jour contrôlée (`start-first`, rollback config).
+- Déploiement reproductible.
+
+## Slide 5 — Labels et placement des services
+
+- Labels nœuds: `role=edge`, `role=app`, `role=data`.
+- Placement cible: `edge-proxy` sur edge.
+- Placement cible: APIs + worker sur app.
+- Placement cible: Postgres + Redis sur data.
+
+## Slide 6 — APIs exposées et routage Traefik
+
+- `users-api`: `/health`, `/users`, `/follows`.
+- `posts-api`: `/posts`.
+- `feed-api`: `/feed/{user_id}`.
+- Routage HTTP centralisé par Traefik.
+
+## Slide 7 — Flux asynchrone (post -> stream -> feed)
+
+- `posts-api` vérifie l'auteur via `users-api`.
+- `posts-api` écrit en DB puis publie `post.created` dans Redis Streams.
+- `feed-worker` consomme l'événement et alimente `feed_events`.
+
+## Slide 8 — Lecture feed + cache Redis
+
+- `feed-api` expose `GET /feed/{user_id}`.
+- Premier appel: DB + cache write (miss).
+- Appels suivants: cache hit.
+
+## Slide 9 — Persistance et sécurité minimale
+
+- Postgres persistant via volume.
+- Redis persistant via AOF.
+- Secret DB injecté via Docker secret.
+- Pas d'exposition directe de Postgres/Redis sur l'hôte.
+
+## Slide 10 — Exploitation: Portainer et Registry privé
+
+- Portainer pour supervision visuelle.
+- Registry privé pour partager les images dans le cluster.
+- Réduction de la dépendance aux images locales.
+
+## Slide 11 — Incident réel et résolution (MTU VXLAN)
+
+- Problème rencontré: `swarm join` en timeout.
+- Diagnostic: contrainte MTU sur encapsulation VXLAN.
+- Correctif: `mtu: 1400` appliqué sur `eth0`.
+
+## Slide 12 — Limites, réplication et suite
+
+- Aujourd'hui: réplication Swarm côté apps possible (`replicas`).
+- Limite actuelle: data layer en instance unique (pas de réplication Postgres/Redis multi-noeuds).
+- Prochaine itération: HA data (patroni/sentinel ou équivalent), CI/CD, Terraform provisioning complet.
+
+---
+
+## Annexe — Actions live et preuves (par slide)
+
+### Slide 1
+
+Action live:
+- Pas de commande (slide d'ouverture).
+
+Preuve:
+- Contexte projet et périmètre explicités.
+
+### Slide 2
 
 Action live:
 ```bash
@@ -30,11 +101,7 @@ docker node ls
 Preuve:
 - 1 manager + 2 workers en `Ready/Active`.
 
-## Slide 3 — Architecture de stack
-
-- `edge-proxy` (Traefik), `users-api`, `posts-api`, `feed-api`, `feed-worker`, `postgres`, `redis`.
-- Réseaux overlay: `public`, `app`, `data`.
-- Point d'entrée unique via Traefik.
+### Slide 3
 
 Action live:
 ```bash
@@ -44,11 +111,7 @@ docker stack services nebula
 Preuve:
 - Tous les services sont visibles et répliqués.
 
-## Slide 4 — Déploiement et orchestration
-
-- Déploiement depuis VM1 manager avec fichiers stack + overlay placement.
-- Stratégie de mise à jour contrôlée (`start-first`, rollback config).
-- Déploiement reproductible.
+### Slide 4
 
 Action live:
 ```bash
@@ -58,12 +121,7 @@ docker stack ps nebula
 Preuve:
 - Tâches services en `Running`, historique des redémarrages visible.
 
-## Slide 5 — Labels et placement des services
-
-- Labels nœuds: `role=edge`, `role=app`, `role=data`.
-- Placement cible: `edge-proxy` sur edge.
-- Placement cible: APIs + worker sur app.
-- Placement cible: Postgres + Redis sur data.
+### Slide 5
 
 Action live:
 ```bash
@@ -77,12 +135,7 @@ docker service ps nebula_redis
 Preuve:
 - Labels corrects + data services réellement exécutés sur VM3.
 
-## Slide 6 — APIs exposées et routage Traefik
-
-- `users-api`: `/health`, `/users`, `/follows`.
-- `posts-api`: `/posts`.
-- `feed-api`: `/feed/{user_id}`.
-- Routage HTTP centralisé par Traefik.
+### Slide 6
 
 Action live:
 ```bash
@@ -93,11 +146,7 @@ curl -i -X POST http://127.0.0.1/users -H 'Content-Type: application/json' -d '{
 Preuve:
 - Réponses HTTP `200` et `201`.
 
-## Slide 7 — Flux asynchrone (post -> stream -> feed)
-
-- `posts-api` vérifie l'auteur via `users-api`.
-- `posts-api` écrit en DB puis publie `post.created` dans Redis Streams.
-- `feed-worker` consomme l'événement et alimente `feed_events`.
+### Slide 7
 
 Action live:
 ```bash
@@ -108,11 +157,7 @@ docker service logs --tail 40 nebula_feed-worker
 Preuve:
 - Event reçu/corrélé dans les logs du worker.
 
-## Slide 8 — Lecture feed + cache Redis
-
-- `feed-api` expose `GET /feed/{user_id}`.
-- Premier appel: DB + cache write (miss).
-- Appels suivants: cache hit.
+### Slide 8
 
 Action live:
 ```bash
@@ -124,12 +169,7 @@ docker service logs --tail 40 nebula_feed-api
 Preuve:
 - Logs `cache miss` puis `cache hit`.
 
-## Slide 9 — Persistance et sécurité minimale
-
-- Postgres persistant via volume.
-- Redis persistant via AOF.
-- Secret DB injecté via Docker secret.
-- Pas d'exposition directe de Postgres/Redis sur l'hôte.
+### Slide 9
 
 Action live:
 ```bash
@@ -142,11 +182,7 @@ docker service ps nebula_redis
 Preuve:
 - Secret présent + volumes présents + services data en running.
 
-## Slide 10 — Exploitation: Portainer et Registry privé
-
-- Portainer pour supervision visuelle.
-- Registry privé pour partager les images dans le cluster.
-- Réduction de la dépendance aux images locales.
+### Slide 10
 
 Action live:
 ```bash
@@ -158,11 +194,7 @@ curl -s http://127.0.0.1:5000/v2/_catalog
 Preuve:
 - Stacks admin/registry actives + catalog JSON du registry.
 
-## Slide 11 — Incident réel et résolution (MTU VXLAN)
-
-- Problème rencontré: `swarm join` en timeout.
-- Diagnostic: contrainte MTU sur encapsulation VXLAN.
-- Correctif: `mtu: 1400` appliqué sur `eth0`.
+### Slide 11
 
 Action live:
 ```bash
@@ -174,11 +206,7 @@ ping -M do -s 1372 10.100.9.222
 Preuve:
 - MTU visible à 1400 + test PMTU cohérent.
 
-## Slide 12 — Limites, réplication et suite
-
-- Aujourd'hui: réplication Swarm côté apps possible (`replicas`).
-- Limite actuelle: data layer en instance unique (pas de réplication Postgres/Redis multi-noeuds).
-- Prochaine itération: HA data (patroni/sentinel ou équivalent), CI/CD, Terraform provisioning complet.
+### Slide 12
 
 Action live:
 ```bash
