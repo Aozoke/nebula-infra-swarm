@@ -1,112 +1,103 @@
-# Présentation Nebula — Script oral détaillé (10 slides)
+# Présentation Nebula — Script oral naturel (10 slides)
 
-Ce document te dit exactement quoi expliquer à l'oral, slide par slide.  
-Il est aligné avec `docs/procedures/presentation-jury-12slides.md` (version 10 slides).
+Ce fichier est ton texte de préparation oral, en mode "je raconte ce que j'ai fait".  
+Version visuelle (Gamma/PPT): `docs/procedures/presentation-jury-12slides.md`.
 
 ## Slide 1 — Problème et objectif
 
-Ce que tu expliques:
-- "Mon objectif n'était pas de faire un réseau social complet, mais de prouver une infrastructure microservices opérable."
-- "Je devais démontrer un déploiement distribué, une communication inter-services fiable, et une exploitation réaliste."
-- "Le livrable principal est donc une plateforme technique démontrable devant un jury."
+Ici, je pose le cadre: je n'ai pas voulu faire une application complète, j'ai voulu prouver que je sais monter une infrastructure microservices exploitable.  
+Mon objectif, c'était d'avoir un déploiement distribué, un flux fonctionnel bout-en-bout, et des preuves concrètes de fonctionnement.
 
-Message de fin de slide:
-- "Je vais vous montrer ce qui a été fait, validé, et ce qui reste pour la suite."
+Transition:
+"Donc la question, ce n'est pas le design produit, c'est: est-ce que la plateforme tient techniquement."
 
 ## Slide 2 — Topologie 3 VM et rôles
 
-Ce que tu expliques:
-- "J'ai travaillé sur un cluster 3 VM avec une séparation claire des responsabilités."
-- "VM1 est manager et point d'entrée, VM2 exécute les services applicatifs, VM3 exécute les services de données."
-- "Cette séparation permet de réduire les conflits et de mieux maîtriser l'exploitation."
+Mon architecture cible est en 3 VM avec des rôles séparés.  
+VM1 gère le cluster et l'entrée réseau, VM2 exécute les services applicatifs, VM3 héberge les services de données.
 
-Message de fin de slide:
-- "Le design n'est pas juste théorique: il est appliqué dans le cluster."
+Important à dire:
+j'ai commencé par faire fonctionner le MVP sur une seule VM, puis j'ai étendu vers 3 VM pour valider la vraie logique d'exploitation.
+
+Transition:
+"Donc je suis parti simple, puis j'ai industrialisé progressivement."
 
 ## Slide 3 — Architecture des services
 
-Ce que tu expliques:
-- "Le point d'entrée HTTP est Traefik, puis les API métiers sont découplées par responsabilité."
-- "Les données sont stockées dans Postgres, et Redis sert à la fois pour le stream d'événements et le cache feed."
-- "Les réseaux overlay séparent l'exposition publique, la communication applicative, et la zone data."
+J'ai découpé les briques en services spécialisés: Traefik pour l'entrée, des APIs métier, un worker asynchrone, Postgres, Redis.  
+J'ai aussi séparé les réseaux overlay (`public`, `app`, `data`) pour isoler les responsabilités.
 
-Message de fin de slide:
-- "L'architecture est volontairement simple, mais couvre les briques d'un vrai environnement."
+Ce que je veux faire comprendre:
+le découpage est volontairement sobre, mais il couvre les patterns d'une infra réelle: entrée, métier, données, asynchrone, cache.
 
-## Slide 4 — Déploiement Swarm reproductible
+## Slide 4 — De 1 VM à un bouton de déploiement 3 VM
 
-Ce que tu expliques:
-- "Le déploiement est piloté par des stacks séparées: data, edge et apps."
-- "J'ai ajouté des stratégies de mise à jour et rollback pour éviter les coupures sur les services stateless."
-- "L'objectif était de pouvoir rejouer le déploiement de façon fiable sans bricolage manuel."
+Après la phase MVP sur VM1, j'ai créé un "bouton" de déploiement pour éviter les manipulations manuelles répétitives.  
+Le bouton principal est `scripts/deploy/one-button-3vm.sh`.
 
-Message de fin de slide:
-- "On est sur une logique d'exploitation, pas juste sur un `docker run` local."
+Comment il fonctionne:
+il prend les 3 nœuds en arguments, applique les labels, déploie la stack Nebula avec overlay de placement, déploie Portainer, puis lance un smoke test.
+
+Pourquoi je l'ai fait:
+pour rendre le déploiement reproductible, réduire les erreurs humaines, et pouvoir rejouer la même procédure dans un autre environnement.
+
+Note complémentaire:
+j'ai aussi `scripts/deploy/one-button-full.sh` qui enchaîne en plus registry + monitoring.
 
 ## Slide 5 — Placement contrôlé par labels
 
-Ce que tu expliques:
-- "J'ai utilisé des labels de nœuds pour forcer le placement par rôle."
-- "Le proxy reste sur le nœud edge, les APIs tournent sur le nœud app, et Postgres/Redis restent sur le nœud data."
-- "Ce point est important car il prouve que l'architecture cible est réellement appliquée."
+Pour garantir que l'architecture est respectée, je place les services par labels de nœuds (`role=edge`, `role=app`, `role=data`).  
+Concrètement, le proxy reste sur edge, les APIs et le worker sur app, et Postgres/Redis sur data.
 
-Message de fin de slide:
-- "La topologie n'est pas déclarative seulement, elle est respectée en exécution."
+Ce que je veux démontrer ici:
+ce n'est pas juste "ça tourne", c'est "ça tourne au bon endroit".
 
-## Slide 6 — Parcours fonctionnel API (synchrone)
+## Slide 6 — Parcours API synchrone
 
-Ce que tu expliques:
-- "Le parcours utilisateur commence par la création d'un user, puis la création d'un post."
-- "Lors de la création du post, le service posts vérifie l'auteur via users-api."
-- "Cette partie démontre que le routage et les appels inter-services synchrones fonctionnent."
+Ensuite, je valide le parcours fonctionnel de base: santé, création utilisateur, création post.  
+Le point important est que `posts-api` vérifie bien l'auteur via `users-api`, donc j'ai déjà une vraie dépendance inter-service synchrone.
 
-Message de fin de slide:
-- "On valide ici le fonctionnement API classique, avant la partie événementielle."
+Message à faire passer:
+l'API répond, et les interactions entre services sont cohérentes.
 
-## Slide 7 — Asynchrone et cache (valeur technique)
+## Slide 7 — Flux asynchrone et cache
 
-Ce que tu expliques:
-- "Après écriture du post, un événement `post.created` est publié dans Redis Streams."
-- "Le worker consomme cet événement et construit la projection du feed."
-- "Le feed-api lit ensuite cette projection avec cache Redis pour accélérer les lectures répétées."
+Après la création du post, l'événement part dans Redis Streams.  
+Le worker le consomme pour alimenter la projection feed, puis le `feed-api` lit cette projection avec cache Redis.
 
-Message de fin de slide:
-- "C'est la partie clé du projet: flux découplé, observable et performant."
+Ce que j'explique clairement:
+je n'ai pas juste des endpoints HTTP, j'ai aussi un flux événementiel + cache observables en logs.
 
-## Slide 8 — Persistance, secrets, exploitation
+## Slide 8 — Persistance, secrets et exploitation
 
-Ce que tu expliques:
-- "La persistance est assurée par volume Postgres et AOF Redis."
-- "Le secret DB est injecté via Docker secrets, donc pas stocké en clair dans le code."
-- "J'ai aussi intégré des outils d'exploitation: Portainer pour la vue ops et registry privé pour fiabiliser la distribution d'images."
+J'ai sécurisé le minimum vital: secret DB hors code via Docker secret.  
+J'ai assuré la persistance avec volume Postgres et AOF Redis.
 
-Message de fin de slide:
-- "Ce sont des choix orientés run, pas seulement développement."
+Côté exploitation, j'ai ajouté Portainer pour la visibilité et un registry privé pour distribuer les images dans le cluster sans dépendre du build local.
 
-## Slide 9 — Incident réel et résolution
+## Slide 9 — Incident réel rencontré et corrigé
 
-Ce que tu expliques:
-- "J'ai rencontré un incident concret: les workers ne rejoignaient pas le swarm."
-- "Le diagnostic a montré un problème MTU lié à VXLAN dans le lab."
-- "Le correctif `mtu: 1400` a permis de stabiliser le join et de finaliser le cluster."
+J'ai eu un problème concret de `swarm join` qui bloquait malgré une connectivité apparente.  
+Le diagnostic a montré une contrainte MTU liée à VXLAN; le passage à `mtu: 1400` a débloqué la situation.
 
-Message de fin de slide:
-- "Ce point montre ma capacité à diagnostiquer et corriger un vrai problème infra."
+Ce que je veux valoriser:
+j'ai rencontré un incident d'infra réel, et je l'ai résolu de manière méthodique.
 
-## Slide 10 — Résultats, limites, suite
+## Slide 10 — Résultats, limites et suite
 
-Ce que tu expliques:
-- "Le résultat obtenu: cluster 3 nœuds opérationnel, placement conforme, flux end-to-end validé."
-- "Côté réplication, les services applicatifs peuvent monter en replicas; la couche data reste en instance unique dans ce MVP."
-- "La suite logique est claire: HA data, CI/CD, et provisioning Terraform complet pour recréer l'environnement de bout en bout."
+Aujourd'hui, j'ai un cluster 3 nœuds opérationnel avec placement maîtrisé et flux end-to-end validé.  
+La scalabilité applicative est prête via replicas sur les services stateless.
 
-Message de fin de slide:
-- "En résumé, la base technique est solide et prête à être industrialisée."
+La limite actuelle est assumée:
+la couche data est encore en instance unique dans ce MVP.
+
+La suite logique du projet:
+HA data, CI/CD, et provisioning Terraform complet pour recréer l'environnement à la demande.
 
 ---
 
-## Conseils de delivery (oral)
+## Conseils de delivery
 
-- Rythme recommandé: 45 à 75 secondes par slide.
-- Toujours terminer une slide par la valeur apportée, pas seulement par la technique.
-- Utiliser le vocabulaire "ce qui est fait", "ce qui est prouvé", "ce qui est prévu ensuite".
+- Parle en "je" pour montrer ce que tu as réellement fait.
+- Termine chaque slide par la valeur apportée (fiabilité, reproductibilité, exploitabilité).
+- Si on te challenge sur la réplication: "HA applicative validée, HA data prévue en itération suivante."
