@@ -1,208 +1,112 @@
-# Présentation Nebula (MVP + Cluster 3 VM) — Version détaillée
+# Présentation Nebula — Script oral détaillé (10 slides)
 
-> Note: version compacte pour PPT/Gamma disponible ici:
-> `docs/procedures/presentation-jury-12slides.md`
+Ce document te dit exactement quoi expliquer à l'oral, slide par slide.  
+Il est aligné avec `docs/procedures/presentation-jury-12slides.md` (version 10 slides).
 
-## Slide 1 — Titre
-- **Nebula Infrastructure MVP (Docker Swarm)**
-- Sujet: prouver l'infrastructure microservices, pas un produit complet.
-- Auteur, date, environnement de démo.
+## Slide 1 — Problème et objectif
 
-## Slide 2 — Objectif du projet
-- Démontrer une architecture opérable en Swarm.
-- Valider: routage, inter-service, persistance, asynchrone, cache, update/rollback.
-- Démarche: MVP sur VM1 puis passage en cluster réel 3 VM.
+Ce que tu expliques:
+- "Mon objectif n'était pas de faire un réseau social complet, mais de prouver une infrastructure microservices opérable."
+- "Je devais démontrer un déploiement distribué, une communication inter-services fiable, et une exploitation réaliste."
+- "Le livrable principal est donc une plateforme technique démontrable devant un jury."
 
-## Slide 3 — Contexte technique
-- Manager Swarm: `10.100.9.222` (`ubuntu1-lefevret`).
-- Worker app: `10.100.9.135` (`ubuntu2-lefevret`).
-- Worker data: `10.100.9.223` (`ubuntu3-lefevret`).
-- Stack technique: Docker Swarm, Traefik, Postgres, Redis Streams, FastAPI, Portainer, Registry privé, Prometheus, Grafana.
+Message de fin de slide:
+- "Je vais vous montrer ce qui a été fait, validé, et ce qui reste pour la suite."
 
-## Slide 4 — Topologie cible retenue
-- VM1 = `manager-edge`
-- VM2 = `worker-app`
-- VM3 = `worker-data`
-- Réseaux overlay: `public`, `app`, `data`
-- Exposition publique: **edge-proxy seulement**
+## Slide 2 — Topologie 3 VM et rôles
 
-## Slide 5 — Déploiement final obtenu (3 VM)
-- `edge-proxy` sur VM1 (manager-edge)
-- `users-api`, `posts-api`, `feed-api`, `feed-worker` sur VM2 (worker-app)
-- `postgres`, `redis` sur VM3 (worker-data)
-- Validation faite avec `docker service ps` service par service.
+Ce que tu expliques:
+- "J'ai travaillé sur un cluster 3 VM avec une séparation claire des responsabilités."
+- "VM1 est manager et point d'entrée, VM2 exécute les services applicatifs, VM3 exécute les services de données."
+- "Cette séparation permet de réduire les conflits et de mieux maîtriser l'exploitation."
 
-## Slide 6 — Découpage des stacks
-- `deploy/swarm/base/stack.data.yml` -> postgres + redis + réseaux/volumes/secrets
-- `deploy/swarm/base/stack.edge.yml` -> Traefik
-- `deploy/swarm/base/stack.apps.yml` -> microservices métiers
-- `deploy/swarm/base/stack.admin.yml` -> Portainer
-- `deploy/swarm/base/stack.registry.yml` -> registry Docker privé
-- `deploy/swarm/base/stack.monitoring.yml` -> node-exporter + Prometheus + Grafana
-- `deploy/swarm/overlays/3vm-placement.yml` -> contraintes de placement par labels
-- `deploy/swarm/overlays/registry-images.yml` -> bascule images vers le registry privé
+Message de fin de slide:
+- "Le design n'est pas juste théorique: il est appliqué dans le cluster."
 
-## Slide 6 bis — Pourquoi ces dossiers/fichiers existent
-- `services/`:
-  - contient le code minimal métier de chaque microservice (`users-api`, `posts-api`, `feed-api`, `feed-worker`)
-  - chaque service a son `Dockerfile` + `requirements.txt` + `app/main.py` pour être buildable indépendamment
-- `deploy/swarm/base/`:
-  - contient les stacks Swarm stables par domaine (edge, data, apps, admin, registry, monitoring)
-  - objectif: limiter l’impact d’un changement (on modifie une brique sans casser les autres)
-- `deploy/swarm/overlays/`:
-  - contient les variations d’environnement (placement 3 VM, images registry)
-  - objectif: changer le comportement de déploiement sans dupliquer toute la stack
-- `scripts/deploy/`:
-  - automatise labels + déploiements pour réduire les erreurs manuelles
-- `scripts/test/`:
-  - automatise smoke tests et collecte des preuves soutenance
-- `docs/procedures/`:
-  - centralise le support oral (présentation), l’explication code et le runbook des manipulations
+## Slide 3 — Architecture des services
 
-## Slide 7 — Labels et placement
-- Labels nœuds:
-  - VM1: `role=edge`
-  - VM2: `role=app`
-  - VM3: `role=data`
-- Contraintes utilisées dans l'overlay:
-  - edge-proxy -> manager + `role=edge`
-  - apps -> `role=app`
-  - data services -> `role=data`
+Ce que tu expliques:
+- "Le point d'entrée HTTP est Traefik, puis les API métiers sont découplées par responsabilité."
+- "Les données sont stockées dans Postgres, et Redis sert à la fois pour le stream d'événements et le cache feed."
+- "Les réseaux overlay séparent l'exposition publique, la communication applicative, et la zone data."
 
-## Slide 8 — Services et endpoints (vue rapide)
-- `users-api`: `/health`, `/users`, `/follows`, `/internal/...`
-- `posts-api`: `/posts`
-- `feed-api`: `/feed/{user_id}`
-- `feed-worker`: interne, pas exposé publiquement
+Message de fin de slide:
+- "L'architecture est volontairement simple, mais couvre les briques d'un vrai environnement."
 
-## Slide 9 — Flux applicatif démontré
-1. `POST /posts` arrive sur `posts-api`
-2. `posts-api` vérifie l'auteur via `users-api`
-3. `posts-api` écrit en Postgres
-4. `posts-api` publie `post.created` dans Redis Stream `nebula.events`
-5. `feed-worker` consomme et écrit `feed_events`
-6. `feed-api` lit le feed (Redis cache puis Postgres)
+## Slide 4 — Déploiement Swarm reproductible
 
-## Slide 10 — Persistance et asynchrone
-- Persistance:
-  - Postgres volumes (`postgres_data`)
-  - Redis AOF (`redis_data`, `--appendonly yes`)
-- Asynchrone:
-  - Redis Streams (pas Pub/Sub) pour rejouabilité et robustesse
+Ce que tu expliques:
+- "Le déploiement est piloté par des stacks séparées: data, edge et apps."
+- "J'ai ajouté des stratégies de mise à jour et rollback pour éviter les coupures sur les services stateless."
+- "L'objectif était de pouvoir rejouer le déploiement de façon fiable sans bricolage manuel."
 
-## Slide 11 — Sécurité minimale appliquée
-- Mot de passe DB hors dépôt via `docker secret` (`nebula_postgres_password`)
-- `postgres` et `redis` uniquement réseau interne `data`
-- Point d'entrée unique: Traefik (`public`)
-- Services internes non exposés en ports host
+Message de fin de slide:
+- "On est sur une logique d'exploitation, pas juste sur un `docker run` local."
 
-## Slide 12 — Versionning et exploitation
-- Images taggées:
-  - `nebula/users-api:v0.3.0`
-  - `nebula/posts-api:v0.2.0`
-  - `nebula/feed-api:v0.3.0`
-  - `nebula/feed-worker:v0.1.0`
-- `update_config` + `rollback_config` sur services stateless
+## Slide 5 — Placement contrôlé par labels
 
-## Slide 13 — Incident réel: MTU / VXLAN
-- Symptôme: `docker swarm join` timeout/pending malgré connectivité de base.
-- Cause lab: MTU trop haute pour encapsulation VXLAN.
-- Vérification:
-```bash
-ping -M do -s 1450 10.100.9.222
-ping -M do -s 1372 10.100.9.222
-```
-- Correctif:
-  - `/etc/netplan/50-cloud-init.yaml` -> `mtu: 1400` sur `eth0`
-  - `sudo netplan apply`
+Ce que tu expliques:
+- "J'ai utilisé des labels de nœuds pour forcer le placement par rôle."
+- "Le proxy reste sur le nœud edge, les APIs tournent sur le nœud app, et Postgres/Redis restent sur le nœud data."
+- "Ce point est important car il prouve que l'architecture cible est réellement appliquée."
 
-## Slide 14 — Démo live (séquence)
-1. Vérifier santé globale (`/health`)
-2. Créer un user
-3. Créer un post avec cet user
-4. Lire le feed de cet user
-5. Montrer logs worker/feed-api
+Message de fin de slide:
+- "La topologie n'est pas déclarative seulement, elle est respectée en exécution."
 
-## Slide 15 — Commandes démo
-```bash
-curl -i http://127.0.0.1/health
+## Slide 6 — Parcours fonctionnel API (synchrone)
 
-curl -i -X POST http://127.0.0.1/users \
-  -H 'Content-Type: application/json' \
-  -d '{"handle":"demo3vm"}'
+Ce que tu expliques:
+- "Le parcours utilisateur commence par la création d'un user, puis la création d'un post."
+- "Lors de la création du post, le service posts vérifie l'auteur via users-api."
+- "Cette partie démontre que le routage et les appels inter-services synchrones fonctionnent."
 
-curl -i -X POST http://127.0.0.1/posts \
-  -H 'Content-Type: application/json' \
-  -d '{"author_id":"user-1","content":"test 3vm"}'
+Message de fin de slide:
+- "On valide ici le fonctionnement API classique, avant la partie événementielle."
 
-curl -i http://127.0.0.1/feed/user-1
-```
+## Slide 7 — Asynchrone et cache (valeur technique)
 
-## Slide 16 — Vérification exploitation
-```bash
-docker node ls
-docker stack services nebula
-docker service ps nebula_edge-proxy
-docker service ps nebula_users-api
-docker service ps nebula_posts-api
-docker service ps nebula_feed-api
-docker service ps nebula_feed-worker
-docker service ps nebula_postgres
-docker service ps nebula_redis
-```
+Ce que tu expliques:
+- "Après écriture du post, un événement `post.created` est publié dans Redis Streams."
+- "Le worker consomme cet événement et construit la projection du feed."
+- "Le feed-api lit ensuite cette projection avec cache Redis pour accélérer les lectures répétées."
 
-## Slide 17 — Interface visuelle (Portainer)
-- Déployé dans stack dédiée `portainer`.
-- Accès via tunnel SSH:
-```bash
-ssh -N -J root@10.210.0.9 -L 9444:127.0.0.1:9443 etudiant@10.100.9.222
-```
-- Ouvrir `https://127.0.0.1:9444`.
+Message de fin de slide:
+- "C'est la partie clé du projet: flux découplé, observable et performant."
 
-## Slide 18 — Geler les preuves (soutenance)
-- Script ajouté:
-```bash
-cd /home/etudiant/Nebula-infra-swarm
-./scripts/test/freeze-evidence-3vm.sh
-```
-- Sortie:
-  - `docs/evidence/<timestamp>/` avec `node ls`, `stack services`, `service ps`, logs, réponses curl.
+## Slide 8 — Persistance, secrets, exploitation
 
-## Slide 19 — Ce qui est validé
-- Cluster Swarm 3 nœuds opérationnel.
-- Placement conforme à l'architecture (edge/app/data).
-- Flux end-to-end validé (`users -> posts -> stream -> worker -> feed`).
-- Cache Redis feed observé (`cache miss` puis `cache hit`).
-- Registry privé opérationnel (`10.100.9.222:5000`) + images poussées.
-- Monitoring opérationnel (`monitoring_node-exporter` global `3/3`, Prometheus `1/1`, Grafana `1/1`).
+Ce que tu expliques:
+- "La persistance est assurée par volume Postgres et AOF Redis."
+- "Le secret DB est injecté via Docker secrets, donc pas stocké en clair dans le code."
+- "J'ai aussi intégré des outils d'exploitation: Portainer pour la vue ops et registry privé pour fiabiliser la distribution d'images."
 
-## Slide 20 — Ce qui reste à faire (projet)
-- Dashboards Grafana métier/infrastructure plus complets + alertes utiles.
-- Pipeline CI/CD build/tag/push (éviter les pushes manuels).
-- Tests de charge et mesures (RPS, latences, taux erreur, cache hit ratio)
-- Démo rollback explicite d'une version applicative
-- Documentation runbook incident/reprise plus détaillée
+Message de fin de slide:
+- "Ce sont des choix orientés run, pas seulement développement."
 
-## Slide 21 — Préparation Terraform (prochaine itération)
-- Cible: environnement recréable de A à Z.
-- Flux:
-  1. Terraform provisionne VMs + réseau
-  2. bootstrap Docker + Swarm
-  3. récupération repo
-  4. lancement script one-shot
-- Intégration future au même support de présentation.
+## Slide 9 — Incident réel et résolution
 
-## Slide 22 — Conclusion
-- Objectif infra atteint: plateforme Nebula MVP opérable en Swarm.
-- Résultat clé: passage réussi de 1 VM à 3 VM avec contraintes de placement.
-- Valeur démontrée: exploitation, isolation réseau, persistance, asynchrone, cache, registry, monitoring.
-- Prochaine marche: industrialisation CI/CD + tests de charge + Terraform.
+Ce que tu expliques:
+- "J'ai rencontré un incident concret: les workers ne rejoignaient pas le swarm."
+- "Le diagnostic a montré un problème MTU lié à VXLAN dans le lab."
+- "Le correctif `mtu: 1400` a permis de stabiliser le join et de finaliser le cluster."
+
+Message de fin de slide:
+- "Ce point montre ma capacité à diagnostiquer et corriger un vrai problème infra."
+
+## Slide 10 — Résultats, limites, suite
+
+Ce que tu expliques:
+- "Le résultat obtenu: cluster 3 nœuds opérationnel, placement conforme, flux end-to-end validé."
+- "Côté réplication, les services applicatifs peuvent monter en replicas; la couche data reste en instance unique dans ce MVP."
+- "La suite logique est claire: HA data, CI/CD, et provisioning Terraform complet pour recréer l'environnement de bout en bout."
+
+Message de fin de slide:
+- "En résumé, la base technique est solide et prête à être industrialisée."
 
 ---
 
-## Notes speaker (oral)
-- Le code métier est volontairement minimal: il sert à prouver le comportement infra.
-- Montrer les logs comme preuve (inter-service + streams + cache).
-- Distinguer clairement:
-  - **fait et démontré**
-  - **prêt pour prochaine itération**
+## Conseils de delivery (oral)
+
+- Rythme recommandé: 45 à 75 secondes par slide.
+- Toujours terminer une slide par la valeur apportée, pas seulement par la technique.
+- Utiliser le vocabulaire "ce qui est fait", "ce qui est prouvé", "ce qui est prévu ensuite".
