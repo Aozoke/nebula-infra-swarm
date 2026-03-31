@@ -1,83 +1,72 @@
-# Nebula — Support jury 12 slides (version opérationnelle)
+# Nebula — Support jury 10 slides (version opérationnelle)
 
 Utilisation: ce fichier est prêt à être collé dans Gamma/PPT.  
-Format conseillé: 1 idée par slide.
+Format conseillé: 1 idée forte par slide.
 
-## Slide 1 — Titre et objectif
+## Slide 1 — Problème et objectif
 
 - **Nebula Infrastructure MVP sur Docker Swarm**
-- Objectif: prouver une plateforme microservices opérable, pas un produit final.
-- Résultat attendu: déploiement distribué, flux end-to-end, preuves techniques.
+- Enjeu: démontrer une plateforme microservices exploitable en conditions lab.
+- Cible de démonstration: déploiement distribué + preuve technique bout-en-bout.
 
-## Slide 2 — Topologie validée (3 VM)
+## Slide 2 — Topologie 3 VM et rôles
 
 - VM1 `10.100.9.222`: manager + edge.
-- VM2 `10.100.9.135`: worker app.
+- VM2 `10.100.9.135`: worker applicatif.
 - VM3 `10.100.9.223`: worker data.
-- Isolation logique par rôles.
+- Séparation des rôles pour limiter les couplages runtime.
 
-## Slide 3 — Architecture de stack
+## Slide 3 — Architecture des services
 
-- `edge-proxy` (Traefik), `users-api`, `posts-api`, `feed-api`, `feed-worker`, `postgres`, `redis`.
-- Réseaux overlay: `public`, `app`, `data`.
-- Point d'entrée unique via Traefik.
+- Services: Traefik, users-api, posts-api, feed-api, feed-worker, Postgres, Redis.
+- Réseaux overlay: `public` (entrée), `app` (métier), `data` (persistance).
+- Point d'entrée unique: Traefik, pas d'exposition directe des services data.
 
-## Slide 4 — Déploiement et orchestration
+## Slide 4 — Déploiement Swarm reproductible
 
-- Déploiement depuis VM1 manager avec fichiers stack + overlay placement.
-- Stratégie de mise à jour contrôlée (`start-first`, rollback config).
-- Déploiement reproductible.
+- Déploiement via stacks découpées (`data`, `edge`, `apps`) + overlay de placement.
+- Configuration update/rollback sur les services stateless.
+- Résultat: un déploiement cohérent et rejouable.
 
-## Slide 5 — Labels et placement des services
+## Slide 5 — Placement contrôlé par labels
 
 - Labels nœuds: `role=edge`, `role=app`, `role=data`.
-- Placement cible: `edge-proxy` sur edge.
-- Placement cible: APIs + worker sur app.
-- Placement cible: Postgres + Redis sur data.
+- Placement cible:
+- `edge-proxy` sur edge.
+- APIs + worker sur app.
+- Postgres + Redis sur data.
 
-## Slide 6 — APIs exposées et routage Traefik
+## Slide 6 — Parcours fonctionnel API (synchrone)
 
-- `users-api`: `/health`, `/users`, `/follows`.
-- `posts-api`: `/posts`.
-- `feed-api`: `/feed/{user_id}`.
-- Routage HTTP centralisé par Traefik.
+- `users-api`: santé + gestion utilisateurs/relations.
+- `posts-api`: création post avec contrôle auteur.
+- `feed-api`: lecture feed utilisateur.
+- Démonstration via appels HTTP depuis VM1.
 
-## Slide 7 — Flux asynchrone (post -> stream -> feed)
+## Slide 7 — Asynchrone et cache (valeur technique)
 
-- `posts-api` vérifie l'auteur via `users-api`.
-- `posts-api` écrit en DB puis publie `post.created` dans Redis Streams.
-- `feed-worker` consomme l'événement et alimente `feed_events`.
+- `posts-api` publie `post.created` dans Redis Streams.
+- `feed-worker` consomme les événements et alimente la projection.
+- `feed-api` applique cache Redis (miss puis hit) pour accélérer la lecture.
 
-## Slide 8 — Lecture feed + cache Redis
+## Slide 8 — Persistance, secrets, exploitation
 
-- `feed-api` expose `GET /feed/{user_id}`.
-- Premier appel: DB + cache write (miss).
-- Appels suivants: cache hit.
+- Persistance: volume Postgres + AOF Redis.
+- Secret DB via Docker secrets (hors code).
+- Exploitation: Portainer (visuel) + registry privé (diffusion d’images intra-cluster).
 
-## Slide 9 — Persistance et sécurité minimale
+## Slide 9 — Incident réel et résolution
 
-- Postgres persistant via volume.
-- Redis persistant via AOF.
-- Secret DB injecté via Docker secret.
-- Pas d'exposition directe de Postgres/Redis sur l'hôte.
+- Incident observé: échec `swarm join` (timeout/pending).
+- Diagnostic: contrainte MTU avec VXLAN.
+- Résolution: `mtu: 1400` sur `eth0`, puis rejoin validé.
+- Valeur: preuve de troubleshooting infra réel.
 
-## Slide 10 — Exploitation: Portainer et Registry privé
+## Slide 10 — Résultats, limites, suite
 
-- Portainer pour supervision visuelle.
-- Registry privé pour partager les images dans le cluster.
-- Réduction de la dépendance aux images locales.
-
-## Slide 11 — Incident réel et résolution (MTU VXLAN)
-
-- Problème rencontré: `swarm join` en timeout.
-- Diagnostic: contrainte MTU sur encapsulation VXLAN.
-- Correctif: `mtu: 1400` appliqué sur `eth0`.
-
-## Slide 12 — Limites, réplication et suite
-
-- Aujourd'hui: réplication Swarm côté apps possible (`replicas`).
-- Limite actuelle: data layer en instance unique (pas de réplication Postgres/Redis multi-noeuds).
-- Prochaine itération: HA data (patroni/sentinel ou équivalent), CI/CD, Terraform provisioning complet.
+- Résultats: cluster 3 nœuds opérationnel, flux E2E validé, placement conforme.
+- Réplication actuelle: scalable côté apps (`replicas`), couche data en instance unique.
+- Suite: HA data, CI/CD, Terraform pour provisioning/redeployment complet.
 
 ---
 
@@ -86,10 +75,10 @@ Format conseillé: 1 idée par slide.
 ### Slide 1
 
 Action live:
-- Pas de commande (slide d'ouverture).
+- Pas de commande (slide d’ouverture).
 
 Preuve:
-- Contexte projet et périmètre explicités.
+- Objectif et périmètre clairement cadrés.
 
 ### Slide 2
 
@@ -109,7 +98,7 @@ docker stack services nebula
 ```
 
 Preuve:
-- Tous les services sont visibles et répliqués.
+- Tous les services attendus sont présents.
 
 ### Slide 4
 
@@ -119,7 +108,7 @@ docker stack ps nebula
 ```
 
 Preuve:
-- Tâches services en `Running`, historique des redémarrages visible.
+- Tâches en `Running` et historique observable.
 
 ### Slide 5
 
@@ -133,7 +122,7 @@ docker service ps nebula_redis
 ```
 
 Preuve:
-- Labels corrects + data services réellement exécutés sur VM3.
+- Labels corrects + services data exécutés sur VM3.
 
 ### Slide 6
 
@@ -141,60 +130,40 @@ Action live:
 ```bash
 curl -i http://127.0.0.1/health
 curl -i -X POST http://127.0.0.1/users -H 'Content-Type: application/json' -d '{"handle":"jury-demo"}'
+curl -i -X POST http://127.0.0.1/posts -H 'Content-Type: application/json' -d '{"author_id":"user-1","content":"post jury"}'
 ```
 
 Preuve:
-- Réponses HTTP `200` et `201`.
+- Réponses HTTP attendues (`200/201`) sur le parcours synchrone.
 
 ### Slide 7
 
 Action live:
 ```bash
-curl -i -X POST http://127.0.0.1/posts -H 'Content-Type: application/json' -d '{"author_id":"user-1","content":"post jury"}'
+curl -i http://127.0.0.1/feed/user-1
+curl -i http://127.0.0.1/feed/user-1
 docker service logs --tail 40 nebula_feed-worker
+docker service logs --tail 40 nebula_feed-api
 ```
 
 Preuve:
-- Event reçu/corrélé dans les logs du worker.
+- Événement consommé + cache miss/hit visibles.
 
 ### Slide 8
 
 Action live:
 ```bash
-curl -i http://127.0.0.1/feed/user-1
-curl -i http://127.0.0.1/feed/user-1
-docker service logs --tail 40 nebula_feed-api
-```
-
-Preuve:
-- Logs `cache miss` puis `cache hit`.
-
-### Slide 9
-
-Action live:
-```bash
 docker secret ls
 docker volume ls | grep -E 'postgres|redis'
-docker service ps nebula_postgres
-docker service ps nebula_redis
-```
-
-Preuve:
-- Secret présent + volumes présents + services data en running.
-
-### Slide 10
-
-Action live:
-```bash
 docker stack services portainer
 docker stack services registry
 curl -s http://127.0.0.1:5000/v2/_catalog
 ```
 
 Preuve:
-- Stacks admin/registry actives + catalog JSON du registry.
+- Secret/volumes présents + outillage d’exploitation actif.
 
-### Slide 11
+### Slide 9
 
 Action live:
 ```bash
@@ -204,9 +173,9 @@ ping -M do -s 1372 10.100.9.222
 ```
 
 Preuve:
-- MTU visible à 1400 + test PMTU cohérent.
+- MTU appliquée et comportement PMTU cohérent.
 
-### Slide 12
+### Slide 10
 
 Action live:
 ```bash
@@ -215,5 +184,5 @@ docker stack services nebula
 ```
 
 Preuve:
-- `replicas` applicatives qui montent à `2/2`.
-- Message oral clair: HA applicative OK, HA base de données à faire ensuite.
+- Réplicas applicatifs montent à `2/2`.
+- Message de clôture: HA applicative validée, HA data à implémenter ensuite.

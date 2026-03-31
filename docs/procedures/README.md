@@ -3,7 +3,7 @@
 ## Fichier principal pour ton PPT
 
 - `presentation-jury-12slides.md`
-  - Version compacte (12 slides).
+  - Version compacte (10 slides max).
   - Compatible import/copier-coller Gamma.
   - Inclut, pour chaque slide, les actions terminal et la preuve attendue.
 
@@ -22,4 +22,3 @@
 
 - `manipulations-completes.md`
   - Runbook complet des commandes du projet.
-
