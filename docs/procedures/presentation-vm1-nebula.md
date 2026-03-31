@@ -83,16 +83,19 @@ Le diagnostic a montré une contrainte MTU liée à VXLAN; le passage à `mtu: 1
 Ce que je veux valoriser:
 j'ai rencontré un incident d'infra réel, et je l'ai résolu de manière méthodique.
 
-## Slide 10 — Résultats, limites et suite
+## Slide 10 — Ce qu’il manque et pourquoi on fait un 2e PPT
 
-Aujourd'hui, j'ai un cluster 3 nœuds opérationnel avec placement maîtrisé et flux end-to-end validé.  
-La scalabilité applicative est prête via replicas sur les services stateless.
+Là, je clos clairement la première partie:  
+j'ai validé l'infra Nebula sur les 3 VM existantes, avec déploiement, placement et flux applicatif.
 
-La limite actuelle est assumée:
-la couche data est encore en instance unique dans ce MVP.
+Ensuite, je liste ce qu'il manque encore:
+la haute disponibilité data (Postgres/Redis), la chaîne CI/CD complète, et l'automatisation de provisioning infra.
 
-La suite logique du projet:
-HA data, CI/CD, et provisioning Terraform complet pour recréer l'environnement à la demande.
+Et là je fais la transition explicite:  
+le prochain PPT sera dédié à la suite, c'est-à-dire la création de 3 nouvelles VM via Terraform, puis le redéploiement complet Nebula sur ces nouvelles VM.
+
+Phrase de clôture recommandée:
+"Cette première soutenance valide la base opérationnelle; la suivante montrera l'industrialisation de bout en bout."
 
 ---
 

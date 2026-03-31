@@ -62,11 +62,14 @@ Format conseillé: 1 idée forte par slide.
 - Résolution: `mtu: 1400` sur `eth0`, puis rejoin validé.
 - Valeur: preuve de troubleshooting infra réel.
 
-## Slide 10 — Résultats, limites, suite
+## Slide 10 — Ce qu’il manque + transition vers la suite
 
-- Résultats: cluster 3 nœuds opérationnel, flux E2E validé, placement conforme.
-- Réplication actuelle: scalable côté apps (`replicas`), couche data en instance unique.
-- Suite: HA data, CI/CD, Terraform pour provisioning/redeployment complet.
+- À ce stade, la base infra est validée sur les 3 VM existantes.
+- Ce qu’il manque encore:
+- HA data (réplication Postgres/Redis, stratégie de reprise).
+- pipeline CI/CD complet (build, push registry, déploiement automatisé).
+- automatisation provisioning infra (création de nouvelles VM depuis zéro).
+- Transition: le prochain PPT est dédié à la suite, avec la création de 3 nouvelles VM via Terraform puis redéploiement Nebula.
 
 ---
 
@@ -178,11 +181,8 @@ Preuve:
 ### Slide 10
 
 Action live:
-```bash
-docker service scale nebula_users-api=2 nebula_posts-api=2 nebula_feed-api=2
-docker stack services nebula
-```
+- Pas de commande obligatoire (slide de synthèse + transition).
 
 Preuve:
-- Réplicas applicatifs montent à `2/2`.
-- Message de clôture: HA applicative validée, HA data à implémenter ensuite.
+- Le jury comprend clairement ce qui est terminé et ce qui sera traité dans la prochaine phase.
+- Passage explicite vers le PPT Terraform (création de 3 nouvelles VM + redéploiement).
