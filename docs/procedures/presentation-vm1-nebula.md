@@ -1,4 +1,7 @@
-# Présentation Nebula (MVP + Cluster 3 VM) — Slide par slide
+# Présentation Nebula (MVP + Cluster 3 VM) — Version détaillée
+
+> Note: version compacte pour PPT/Gamma disponible ici:
+> `docs/procedures/presentation-jury-12slides.md`
 
 ## Slide 1 — Titre
 - **Nebula Infrastructure MVP (Docker Swarm)**
