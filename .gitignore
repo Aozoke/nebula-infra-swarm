@@ -11,6 +11,11 @@ __pycache__/
 *.tar
 *.tar.gz
 
+# Markdown docs (keep README files tracked)
+*.md
+!README.md
+!**/README.md
+
 # Nebula local data / evidence
 docs/evidence/
 data/
