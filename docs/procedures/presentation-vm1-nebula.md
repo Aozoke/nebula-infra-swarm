@@ -1,108 +1,108 @@
-# Présentation Nebula — Script oral naturel (10 slides)
+# Présentation Nebula — Script oral (Partie 1 Docker Swarm)
 
-Ce fichier est ton texte de préparation oral, en mode "je raconte ce que j'ai fait".  
-Version visuelle (Gamma/PPT): `docs/procedures/presentation-jury-12slides.md`.
+Ce fichier te sert à dire exactement quoi raconter pendant la première partie de soutenance.  
+Il suit le plan demandé:  
+1) Présentation Swarm + réalisation + secrets + services + résilience  
+2) Suppression pour test de résilience  
+3) Analyse du code Docker Swarm
 
-## Slide 1 — Problème et objectif
+## Slide 1 — Plan de la première partie
 
-Ici, je pose le cadre: je n'ai pas voulu faire une application complète, j'ai voulu prouver que je sais monter une infrastructure microservices exploitable.  
-Mon objectif, c'était d'avoir un déploiement distribué, un flux fonctionnel bout-en-bout, et des preuves concrètes de fonctionnement.
+Ici, je commence en annonçant clairement le déroulé en 3 étapes.  
+D’abord je présente l’architecture Swarm et ce qu’on a réalisé.  
+Ensuite je fais un test de résilience en supprimant un conteneur/service.  
+Enfin je montre le code de déploiement Swarm pour expliquer comment c’est construit.
 
-Transition:
-"Donc la question, ce n'est pas le design produit, c'est: est-ce que la plateforme tient techniquement."
+Phrase de transition:
+"Je vais commencer par ce qui est en place et validé techniquement."
 
-## Slide 2 — Topologie 3 VM et rôles
+## Slide 2 — Docker Swarm et topologie cluster
 
-Mon architecture cible est en 3 VM avec des rôles séparés.  
-VM1 gère le cluster et l'entrée réseau, VM2 exécute les services applicatifs, VM3 héberge les services de données.
+J’explique que j’ai un cluster 3 VM avec séparation des rôles:  
+VM1 manager/edge, VM2 app, VM3 data.
 
-Important à dire:
-j'ai commencé par faire fonctionner le MVP sur une seule VM, puis j'ai étendu vers 3 VM pour valider la vraie logique d'exploitation.
+Je précise aussi la démarche:
+j’ai commencé sur 1 VM pour valider le MVP, puis j’ai étendu en 3 VM pour démontrer une vraie topologie d’exploitation.
 
-Transition:
-"Donc je suis parti simple, puis j'ai industrialisé progressivement."
+Phrase de transition:
+"La séparation des rôles me permet de maîtriser le placement et la stabilité."
 
-## Slide 3 — Architecture des services
+## Slide 3 — Ce que j’ai réalisé concrètement
 
-J'ai découpé les briques en services spécialisés: Traefik pour l'entrée, des APIs métier, un worker asynchrone, Postgres, Redis.  
-J'ai aussi séparé les réseaux overlay (`public`, `app`, `data`) pour isoler les responsabilités.
+Je raconte ce que j’ai construit:
+les services Nebula, le déploiement en stack, et l’automatisation.
+
+Point clé à dire:
+j’ai créé un "bouton" de déploiement `scripts/deploy/one-button-3vm.sh`.  
+Ce script applique les labels, déploie Nebula avec l’overlay 3 VM, déploie Portainer, puis lance un smoke test.
+
+Pourquoi je l’ai fait:
+pour avoir un déploiement reproductible et éviter les erreurs manuelles.
+
+## Slide 4 — Gestion des secrets
+
+J’explique que les secrets sensibles ne sont pas codés en dur dans les fichiers applicatifs.  
+Le mot de passe Postgres est injecté via Docker secret, puis lu par les services via des variables `*_PASSWORD_FILE`.
+
+Message important:
+ce n’est pas un système de sécurité complet enterprise, mais c’est une bonne pratique minimale propre pour un MVP infra.
+
+## Slide 5 — Services déployés et placement
+
+Je liste les services principaux, puis j’explique le placement par labels.  
+Le proxy est sur edge, les APIs sur app, la data sur data.
 
 Ce que je veux faire comprendre:
-le découpage est volontairement sobre, mais il couvre les patterns d'une infra réelle: entrée, métier, données, asynchrone, cache.
+le cluster ne "tourne pas au hasard"; l’architecture cible est appliquée volontairement.
 
-## Slide 4 — De 1 VM à un bouton de déploiement 3 VM
+## Slide 6 — Résilience native Swarm
 
-Après la phase MVP sur VM1, j'ai créé un "bouton" de déploiement pour éviter les manipulations manuelles répétitives.  
-Le bouton principal est `scripts/deploy/one-button-3vm.sh`.
+Je présente la résilience attendue dans Swarm:
+si une tâche tombe, l’orchestrateur doit recréer une tâche pour retrouver l’état désiré.
 
-Comment il fonctionne:
-il prend les 3 nœuds en arguments, applique les labels, déploie la stack Nebula avec overlay de placement, déploie Portainer, puis lance un smoke test.
+Je mentionne aussi les stratégies update/restart configurées sur les services stateless.
 
-Pourquoi je l'ai fait:
-pour rendre le déploiement reproductible, réduire les erreurs humaines, et pouvoir rejouer la même procédure dans un autre environnement.
+Phrase de transition:
+"Maintenant je passe à la démonstration concrète: je supprime et je vérifie la reconstruction."
 
-Note complémentaire:
-j'ai aussi `scripts/deploy/one-button-full.sh` qui enchaîne en plus registry + monitoring.
+## Slide 7 — Test de résilience par suppression
 
-## Slide 5 — Placement contrôlé par labels
+Ici, je supprime volontairement un conteneur d’un service managé (ex: edge-proxy).  
+Je montre ensuite que Swarm relance automatiquement une nouvelle tâche.
 
-Pour garantir que l'architecture est respectée, je place les services par labels de nœuds (`role=edge`, `role=app`, `role=data`).  
-Concrètement, le proxy reste sur edge, les APIs et le worker sur app, et Postgres/Redis sur data.
+Message clé:
+la résilience est prouvée en runtime, pas juste annoncée dans la doc.
 
-Ce que je veux démontrer ici:
-ce n'est pas juste "ça tourne", c'est "ça tourne au bon endroit".
+## Slide 8 — Analyse du code Docker Swarm
 
-## Slide 6 — Parcours API synchrone
+Je bascule en lecture de code de déploiement:
+- les stacks dans `deploy/swarm/base/`
+- l’overlay de placement `deploy/swarm/overlays/3vm-placement.yml`
+- les scripts d’automatisation dans `scripts/deploy/`
 
-Ensuite, je valide le parcours fonctionnel de base: santé, création utilisateur, création post.  
-Le point important est que `posts-api` vérifie bien l'auteur via `users-api`, donc j'ai déjà une vraie dépendance inter-service synchrone.
+Ce que je dis:
+on peut relire et comprendre la logique de déploiement, elle est versionnée et explicite.
 
-Message à faire passer:
-l'API répond, et les interactions entre services sont cohérentes.
+## Slide 9 — Bilan de cette partie Swarm
 
-## Slide 7 — Flux asynchrone et cache
+Je résume ce qui est validé:
+cluster opérationnel, services placés, secrets gérés, résilience testée, code de déploiement analysé.
 
-Après la création du post, l'événement part dans Redis Streams.  
-Le worker le consomme pour alimenter la projection feed, puis le `feed-api` lit cette projection avec cache Redis.
+Je peux conclure:
+la plateforme est exploitable sur les VM existantes.
 
-Ce que j'explique clairement:
-je n'ai pas juste des endpoints HTTP, j'ai aussi un flux événementiel + cache observables en logs.
+## Slide 10 — Transition vers la partie 2
 
-## Slide 8 — Persistance, secrets et exploitation
-
-J'ai sécurisé le minimum vital: secret DB hors code via Docker secret.  
-J'ai assuré la persistance avec volume Postgres et AOF Redis.
-
-Côté exploitation, j'ai ajouté Portainer pour la visibilité et un registry privé pour distribuer les images dans le cluster sans dépendre du build local.
-
-## Slide 9 — Incident réel rencontré et corrigé
-
-J'ai eu un problème concret de `swarm join` qui bloquait malgré une connectivité apparente.  
-Le diagnostic a montré une contrainte MTU liée à VXLAN; le passage à `mtu: 1400` a débloqué la situation.
-
-Ce que je veux valoriser:
-j'ai rencontré un incident d'infra réel, et je l'ai résolu de manière méthodique.
-
-## Slide 10 — Ce qu’il manque et pourquoi on fait un 2e PPT
-
-Là, je clos clairement la première partie:  
-j'ai validé l'infra Nebula sur les 3 VM existantes, avec déploiement, placement et flux applicatif.
-
-Ensuite, je liste ce qu'il manque encore:
-la haute disponibilité data (Postgres/Redis), la chaîne CI/CD complète, et le workflow Terraform ciblé pour créer un nouvel environnement 3 VM.
-
-Et là je fais la transition explicite:  
-le prochain PPT sera dédié à la suite, c'est-à-dire la création de 3 nouvelles VM via Terraform, puis le redéploiement complet Nebula sur ces nouvelles VM.
-Dans cette suite, l'idée est simple:
-on crée les 3 VM, on récupère le code sur Git, puis on redéploie tous les microservices Nebula sur ce nouvel environnement.
+Je précise que cette première partie couvre Docker Swarm sur l’existant.  
+Le second PPT couvre Terraform: créer 3 nouvelles VM, récupérer le code sur Git, redéployer Nebula.
 
 Phrase de clôture recommandée:
-"Cette première soutenance valide la base opérationnelle; la suivante montrera l'industrialisation de bout en bout."
+"Partie 1: j’ai validé l’exploitation Swarm. Partie 2: je vais valider la recréation de l’environnement de zéro."
 
 ---
 
 ## Conseils de delivery
 
-- Parle en "je" pour montrer ce que tu as réellement fait.
-- Termine chaque slide par la valeur apportée (fiabilité, reproductibilité, exploitabilité).
-- Si on te challenge sur la réplication: "HA applicative validée, HA data prévue en itération suivante."
+- Reste en "je" pour montrer ta contribution réelle.
+- Fais des phrases courtes: action -> résultat -> valeur.
+- Évite de mélanger Terraform ici: garde la transition en fin de slide 10.

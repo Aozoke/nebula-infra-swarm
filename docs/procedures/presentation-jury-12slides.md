@@ -1,75 +1,76 @@
-# Nebula — Support jury 10 slides (version opérationnelle)
+# Nebula — Support jury 10 slides (Partie 1: Docker Swarm)
 
 Utilisation: ce fichier est prêt à être collé dans Gamma/PPT.  
 Format conseillé: 1 idée forte par slide.
 
-## Slide 1 — Problème et objectif
+## Slide 1 — Plan de soutenance (partie Swarm)
 
-- **Nebula Infrastructure MVP sur Docker Swarm**
-- Enjeu: démontrer une plateforme microservices exploitable en conditions lab.
-- Cible de démonstration: déploiement distribué + preuve technique bout-en-bout.
+- Cette première partie est dédiée à Docker Swarm uniquement.
+- Étape 1: présenter l'architecture, ce qui a été réalisé, les secrets, les services et la résilience.
+- Étape 2: supprimer un service/processus pour tester la résilience.
+- Étape 3: analyser le code de déploiement Docker Swarm.
 
-## Slide 2 — Topologie 3 VM et rôles
+## Slide 2 — Docker Swarm et topologie cluster
 
-- VM1 `10.100.9.222`: manager + edge.
-- VM2 `10.100.9.135`: worker applicatif.
-- VM3 `10.100.9.223`: worker data.
-- Séparation des rôles pour limiter les couplages runtime.
+- Cluster 3 VM:
+- VM1 `10.100.9.222` = manager + edge.
+- VM2 `10.100.9.135` = worker app.
+- VM3 `10.100.9.223` = worker data.
+- Objectif: séparer entrée, logique applicative et data.
 
-## Slide 3 — Architecture des services
+## Slide 3 — Ce que j’ai réalisé (de 1 VM vers 3 VM)
 
-- Services: Traefik, users-api, posts-api, feed-api, feed-worker, Postgres, Redis.
-- Réseaux overlay: `public` (entrée), `app` (métier), `data` (persistance).
-- Point d'entrée unique: Traefik, pas d'exposition directe des services data.
+- D’abord un MVP fonctionnel sur 1 VM pour valider le socle.
+- Ensuite extension vers 3 VM avec placement par rôles.
+- Industrialisation avec un "bouton" de déploiement:
+- `scripts/deploy/one-button-3vm.sh` (labels + déploiement + smoke test).
 
-## Slide 4 — Déploiement Swarm reproductible
+## Slide 4 — Gestion des secrets
 
-- Déploiement via stacks découpées (`data`, `edge`, `apps`) + overlay de placement.
-- Configuration update/rollback sur les services stateless.
-- Résultat: un déploiement cohérent et rejouable.
+- Secret DB géré via Docker secrets (`nebula_postgres_password`).
+- Mot de passe non stocké en dur dans le code.
+- Les services lisent le secret via `*_PASSWORD_FILE`.
 
-## Slide 5 — Placement contrôlé par labels
+## Slide 5 — Services déployés et placement
 
-- Labels nœuds: `role=edge`, `role=app`, `role=data`.
-- Placement cible:
+- Services déployés: `edge-proxy`, `users-api`, `posts-api`, `feed-api`, `feed-worker`, `postgres`, `redis`.
+- Placement par labels:
 - `edge-proxy` sur edge.
 - APIs + worker sur app.
-- Postgres + Redis sur data.
+- `postgres` + `redis` sur data.
 
-## Slide 6 — Parcours fonctionnel API (synchrone)
+## Slide 6 — Résilience native Swarm
 
-- `users-api`: santé + gestion utilisateurs/relations.
-- `posts-api`: création post avec contrôle auteur.
-- `feed-api`: lecture feed utilisateur.
-- Démonstration via appels HTTP depuis VM1.
+- Redémarrage automatique des tâches en échec.
+- Réconciliation d’état (Swarm maintient le nombre de replicas demandé).
+- Politique de mise à jour contrôlée pour services stateless.
 
-## Slide 7 — Asynchrone et cache (valeur technique)
+## Slide 7 — Test de résilience par suppression
 
-- `posts-api` publie `post.created` dans Redis Streams.
-- `feed-worker` consomme les événements et alimente la projection.
-- `feed-api` applique cache Redis (miss puis hit) pour accélérer la lecture.
+- Test: suppression forcée d’un conteneur de service.
+- Résultat attendu: Swarm recrée automatiquement une nouvelle tâche.
+- Ce test prouve que le service reste géré par l’orchestrateur, pas par un conteneur unique.
 
-## Slide 8 — Persistance, secrets, exploitation
+## Slide 8 — Analyse du code Docker Swarm
 
-- Persistance: volume Postgres + AOF Redis.
-- Secret DB via Docker secrets (hors code).
-- Exploitation: Portainer (visuel) + registry privé (diffusion d’images intra-cluster).
+- Lecture des fichiers de stack (`stack.data.yml`, `stack.edge.yml`, `stack.apps.yml`).
+- Lecture des overlays (`3vm-placement.yml`) pour comprendre les contraintes.
+- Lecture des scripts (`one-button-3vm.sh`, `deploy-nebula-3vm.sh`) pour expliquer l'automatisation.
 
-## Slide 9 — Incident réel et résolution
+## Slide 9 — Bilan technique de la partie Swarm
 
-- Incident observé: échec `swarm join` (timeout/pending).
-- Diagnostic: contrainte MTU avec VXLAN.
-- Résolution: `mtu: 1400` sur `eth0`, puis rejoin validé.
-- Valeur: preuve de troubleshooting infra réel.
+- Ce qui est validé:
+- cluster 3 nœuds opérationnel.
+- services déployés et placés correctement.
+- secrets gérés.
+- test de résilience validé.
+- analyse du code de déploiement réalisée.
 
-## Slide 10 — Ce qu’il manque + transition vers la suite
+## Slide 10 — Transition vers la partie 2 (Terraform)
 
-- À ce stade, la base infra est validée sur les 3 VM existantes.
-- Ce qu’il manque encore:
-- HA data (réplication Postgres/Redis, stratégie de reprise).
-- pipeline CI/CD complet (build, push registry, déploiement automatisé).
-- workflow Terraform ciblé: création de 3 nouvelles VM pour l’environnement Nebula.
-- transition: le prochain PPT détaille la suite, avec création des 3 VM, récupération du code depuis Git, puis redéploiement complet des microservices sur ces nouvelles VM.
+- Cette partie 1 valide l’exploitation sur cluster existant.
+- Partie 2 (autre PPT): créer 3 nouvelles VM via Terraform.
+- Puis récupérer le code depuis Git et redéployer Nebula sur ce nouvel environnement.
 
 ---
 
@@ -78,10 +79,10 @@ Format conseillé: 1 idée forte par slide.
 ### Slide 1
 
 Action live:
-- Pas de commande (slide d’ouverture).
+- Pas de commande (cadrage oral).
 
 Preuve:
-- Objectif et périmètre clairement cadrés.
+- Le jury comprend le plan en 3 étapes.
 
 ### Slide 2
 
@@ -101,17 +102,18 @@ docker stack services nebula
 ```
 
 Preuve:
-- Tous les services attendus sont présents.
+- Les services existent et la plateforme est déployée.
 
 ### Slide 4
 
 Action live:
 ```bash
-docker stack ps nebula
+docker secret ls
+docker service inspect nebula_users-api --format '{{json .Spec.TaskTemplate.ContainerSpec.Secrets}}'
 ```
 
 Preuve:
-- Tâches en `Running` et historique observable.
+- Secret présent et bien injecté dans les services.
 
 ### Slide 5
 
@@ -120,69 +122,65 @@ Action live:
 docker node inspect ubuntu1-lefevret --format '{{ .Spec.Labels }}'
 docker node inspect ubuntu2-lefevret --format '{{ .Spec.Labels }}'
 docker node inspect ubuntu3-lefevret --format '{{ .Spec.Labels }}'
+docker service ps nebula_edge-proxy
+docker service ps nebula_users-api
 docker service ps nebula_postgres
-docker service ps nebula_redis
 ```
 
 Preuve:
-- Labels corrects + services data exécutés sur VM3.
+- Placement conforme à l’architecture.
 
 ### Slide 6
 
 Action live:
 ```bash
-curl -i http://127.0.0.1/health
-curl -i -X POST http://127.0.0.1/users -H 'Content-Type: application/json' -d '{"handle":"jury-demo"}'
-curl -i -X POST http://127.0.0.1/posts -H 'Content-Type: application/json' -d '{"author_id":"user-1","content":"post jury"}'
+docker service inspect nebula_users-api --format '{{json .Spec.UpdateConfig}}'
+docker service inspect nebula_users-api --format '{{json .Spec.TaskTemplate.RestartPolicy}}'
 ```
 
 Preuve:
-- Réponses HTTP attendues (`200/201`) sur le parcours synchrone.
+- Config de résilience visible dans la spec du service.
 
 ### Slide 7
 
 Action live:
 ```bash
-curl -i http://127.0.0.1/feed/user-1
-curl -i http://127.0.0.1/feed/user-1
-docker service logs --tail 40 nebula_feed-worker
-docker service logs --tail 40 nebula_feed-api
+CID=$(docker ps -q --filter label=com.docker.swarm.service.name=nebula_edge-proxy | head -n 1)
+docker rm -f "$CID"
+sleep 3
+docker service ps nebula_edge-proxy
 ```
 
 Preuve:
-- Événement consommé + cache miss/hit visibles.
+- L’ancienne tâche est arrêtée et une nouvelle tâche est recréée.
 
 ### Slide 8
 
 Action live:
 ```bash
-docker secret ls
-docker volume ls | grep -E 'postgres|redis'
-docker stack services portainer
-docker stack services registry
-curl -s http://127.0.0.1:5000/v2/_catalog
+sed -n '1,200p' deploy/swarm/base/stack.apps.yml
+sed -n '1,200p' deploy/swarm/overlays/3vm-placement.yml
+sed -n '1,200p' scripts/deploy/one-button-3vm.sh
 ```
 
 Preuve:
-- Secret/volumes présents + outillage d’exploitation actif.
+- Le jury voit la logique de déploiement dans le code.
 
 ### Slide 9
 
 Action live:
 ```bash
-ip link show eth0 | grep mtu
-ping -M do -s 1450 10.100.9.222 || true
-ping -M do -s 1372 10.100.9.222
+curl -i http://127.0.0.1/health
+curl -i http://127.0.0.1/feed/user-1
 ```
 
 Preuve:
-- MTU appliquée et comportement PMTU cohérent.
+- La plateforme répond toujours après les manipulations.
 
 ### Slide 10
 
 Action live:
-- Pas de commande obligatoire (slide de synthèse + transition).
+- Pas de commande obligatoire (slide de transition).
 
 Preuve:
-- Le jury comprend clairement ce qui est terminé et ce qui sera traité dans la prochaine phase.
-- Passage explicite vers le PPT Terraform (création de 3 nouvelles VM + redéploiement).
+- Transition claire vers le PPT Terraform.

@@ -77,6 +77,22 @@ docker service logs --tail 30 nebula_feed-worker
 docker service logs --tail 30 nebula_feed-api
 ```
 
+## D bis) Test de résilience par suppression (étape soutenance)
+
+Objectif:
+- supprimer un conteneur d’un service Swarm managé, puis vérifier la recréation automatique.
+
+Exemple avec `edge-proxy` (sur VM1):
+```bash
+CID=$(docker ps -q --filter label=com.docker.swarm.service.name=nebula_edge-proxy | head -n 1)
+docker rm -f "$CID"
+sleep 3
+docker service ps nebula_edge-proxy
+```
+
+Attendu:
+- une tâche est arrêtée, puis une nouvelle tâche passe en `Running`.
+
 ## E) Portainer (admin)
 
 ### VM1
